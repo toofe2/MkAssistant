@@ -80,7 +80,13 @@ final class AssistantController: ObservableObject {
                         guard let self else { return }
                         self.lastTranscript = text
                         self.speech.stop()
-                        await self.answer(text)
+
+                        let command = WakePhrase.command(afterWakeWord: text)
+                        if WakePhrase.containsWakeWord(text), !command.isEmpty {
+                            await self.answer(command)
+                        } else {
+                            await self.answer(text)
+                        }
                     }
                 }
             )
