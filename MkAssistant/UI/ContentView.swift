@@ -27,6 +27,11 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
 
+            Button("Test Speaker") {
+                assistant.testSpeaker()
+            }
+            .buttonStyle(.bordered)
+
             Button("Stop") {
                 assistant.stopListening()
             }
