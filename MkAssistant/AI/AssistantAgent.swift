@@ -13,10 +13,23 @@ protocol AssistantAgent {
     func respond(to request: AssistantRequest) async throws -> AssistantResponse
 }
 
-/// Provider implementation is injected later.
-/// API keys must never be committed to the repository.
-final class PlaceholderAssistantAgent: AssistantAgent {
+/// Local Phase-1 brain used to validate the complete voice loop without
+/// requiring an API key. It will be replaced by the streaming AI provider.
+final class LocalAssistantAgent: AssistantAgent {
     func respond(to request: AssistantRequest) async throws -> AssistantResponse {
-        AssistantResponse(spokenText: "سمعتك: \(request.transcript)")
+        let text = request.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = text.lowercased()
+
+        if lower.contains("شلونك") || lower.contains("شخبارك") {
+            return AssistantResponse(spokenText: "تمام مصطفى، آني حاضر. شتريد أسويلك؟")
+        }
+        if lower.contains("منو انت") || lower.contains("من أنت") {
+            return AssistantResponse(spokenText: "آني إم كي، مساعدك الذكي بالسيارة.")
+        }
+        if lower.contains("خلاص") || lower.contains("اسكت") || lower.contains("stop") {
+            return AssistantResponse(spokenText: "تمام.")
+        }
+
+        return AssistantResponse(spokenText: "سمعتك تقول: \(text)")
     }
 }
