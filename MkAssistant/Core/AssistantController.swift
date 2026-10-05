@@ -22,7 +22,7 @@ final class AssistantController: ObservableObject {
     @Published private(set) var state: State = .idle
     @Published private(set) var lastTranscript = ""
     @Published private(set) var lastResponse = ""
-    @Published private(set) var voiceDiagnostic = "Piper: not tested"
+    @Published private(set) var voiceDiagnostic = "Sherpa: not tested"
 
     private let wakeWord: WakeWordDetecting
     private let speech: SpeechRecognizing
@@ -33,15 +33,15 @@ final class AssistantController: ObservableObject {
     init(
         wakeWord: WakeWordDetecting = PlaceholderWakeWordEngine(),
         speech: SpeechRecognizing = AppleSpeechRecognizer(),
-        speaker: SpeechSynthesizing = PiperSpeechSynthesizer(),
+        speaker: SpeechSynthesizing = SherpaSpeechSynthesizer(),
         agent: AssistantAgent = LocalAssistantAgent()
     ) {
         self.wakeWord = wakeWord
         self.speech = speech
         self.speaker = speaker
         self.agent = agent
-        if let piper = speaker as? PiperSpeechSynthesizer {
-            piper.onDiagnostic = { [weak self] message in
+        if let sherpa = speaker as? SherpaSpeechSynthesizer {
+            sherpa.onDiagnostic = { [weak self] message in
                 Task { @MainActor in self?.voiceDiagnostic = message }
             }
         }
