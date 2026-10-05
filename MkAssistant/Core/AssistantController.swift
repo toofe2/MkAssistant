@@ -101,13 +101,13 @@ final class AssistantController: ObservableObject {
             let response = try await agent.respond(to: AssistantRequest(transcript: clean, locale: "ar-IQ"))
             lastResponse = response.spokenText
             state = .speaking
-            speaker.speak(response.spokenText, language: "ar-IQ")
-
-            // Phase-1 follow-up window. AVSpeechSynthesizer does not yet expose
-            // completion through our protocol, so wait briefly before re-listening.
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
-            state = .followUp
-            beginListening()
+            speaker.speak(response.spokenText, language: "ar-IQ") { [weak self] in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.state = .followUp
+                    self.beginListening()
+                }
+            }
         } catch {
             state = .error(error.localizedDescription)
         }
