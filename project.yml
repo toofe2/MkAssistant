@@ -4,9 +4,9 @@ options:
   deploymentTarget:
     iOS: "15.6"
 packages:
-  PiperObjC:
-    url: https://github.com/IhorShevchuk/piper-objc.git
-    from: 0.2.15
+  SherpaOnnx:
+    url: https://github.com/k2-fsa/sherpa-onnx
+    from: 1.13.8
 settings:
   base:
     SWIFT_VERSION: "5.7"
@@ -26,8 +26,8 @@ targets:
         CFBundleIdentifier: com.mkassistant.app
         CFBundleName: MkAssistant
         CFBundleDisplayName: MK Assistant
-        CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "3"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -36,8 +36,8 @@ targets:
         UIBackgroundModes:
           - audio
     dependencies:
-      - package: PiperObjC
-        product: piper-player
+      - package: SherpaOnnx
+        product: sherpa-onnx
     entitlements:
       path: MkAssistant/Config/MkAssistant.entitlements
     settings:
