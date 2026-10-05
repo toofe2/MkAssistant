@@ -12,6 +12,7 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
     private let audioEngine = AVAudioEngine()
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    private var hasTap = false
 
     func requestAuthorization() async -> Bool {
         await withCheckedContinuation { continuation in
@@ -28,8 +29,8 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
         }
 
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .allowBluetooth])
-        try session.setActive(true, options: .notifyOthersOnDeactivation)
+        try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .allowBluetooth, .defaultToSpeaker])
+        try session.setActive(true)
 
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
@@ -37,8 +38,8 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
 
         let input = audioEngine.inputNode
         let format = input.outputFormat(forBus: 0)
-        input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in req.append(buffer) }
+        hasTap = true
 
         task = recognizer.recognitionTask(with: req) { result, error in
             if let result {
@@ -54,10 +55,15 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
 
     func stop() {
         if audioEngine.isRunning { audioEngine.stop() }
-        audioEngine.inputNode.removeTap(onBus: 0)
+        if hasTap {
+            audioEngine.inputNode.removeTap(onBus: 0)
+            hasTap = false
+        }
         request?.endAudio()
         task?.cancel()
         request = nil
         task = nil
+
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
