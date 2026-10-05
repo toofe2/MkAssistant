@@ -9,6 +9,8 @@ final class PiperSpeechSynthesizer: SpeechSynthesizing {
     private let fallback = AppleSpeechSynthesizer()
     private var player: PiperPlayer?
     private var task: Task<Void, Never>?
+    private var audioPlayer: AVAudioPlayer?
+    private var audioDelegate: PiperAudioDelegate?
     private let modelManager = PiperKareemModelManager()
 
     func speak(_ text: String, language: String, completion: @escaping () -> Void) {
@@ -37,8 +39,17 @@ final class PiperSpeechSynthesizer: SpeechSynthesizing {
                 let session = AVAudioSession.sharedInstance()
                 try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
                 try? session.setActive(true)
-                await MainActor.run { self.onDiagnostic?("Piper: speaking…") }
-                try await p.play(text: text)
+                await MainActor.run { self.onDiagnostic?("Piper: synthesizing…") }
+                guard let wavPath = await p.synthesizeToFile(text: text) else {
+                    throw NSError(domain: "MkAssistant.Piper", code: 20, userInfo: [NSLocalizedDescriptionKey: "Piper did not create a WAV file"])
+                }
+                let wavURL = URL(fileURLWithPath: wavPath)
+                let attrs = try FileManager.default.attributesOfItem(atPath: wavPath)
+                let size = (attrs[.size] as? NSNumber)?.intValue ?? 0
+                await MainActor.run { self.onDiagnostic?("Piper: WAV ready (\(size) bytes), playing…") }
+
+                try await self.playLegacyCompatibleWAV(wavURL)
+                try? FileManager.default.removeItem(at: wavURL)
                 try? session.setActive(false, options: .notifyOthersOnDeactivation)
 
                 if !Task.isCancelled {
@@ -55,10 +66,49 @@ final class PiperSpeechSynthesizer: SpeechSynthesizing {
         }
     }
 
+
+    private func playLegacyCompatibleWAV(_ url: URL) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.main.async {
+                do {
+                    let data = try Data(contentsOf: url)
+                    guard data.count > 44 else {
+                        throw NSError(domain: "MkAssistant.Piper", code: 21, userInfo: [NSLocalizedDescriptionKey: "Generated WAV is empty or invalid"])
+                    }
+                    let player = try AVAudioPlayer(data: data, fileTypeHint: AVFileType.wav.rawValue)
+                    let delegate = PiperAudioDelegate { [weak self] success in
+                        guard let self else { return }
+                        self.audioPlayer = nil
+                        self.audioDelegate = nil
+                        if success {
+                            continuation.resume()
+                        } else {
+                            continuation.resume(throwing: NSError(domain: "MkAssistant.Piper", code: 22, userInfo: [NSLocalizedDescriptionKey: "AVAudioPlayer could not play generated WAV"]))
+                        }
+                    }
+                    self.audioDelegate = delegate
+                    self.audioPlayer = player
+                    player.delegate = delegate
+                    player.prepareToPlay()
+                    guard player.play() else {
+                        self.audioPlayer = nil
+                        self.audioDelegate = nil
+                        throw NSError(domain: "MkAssistant.Piper", code: 23, userInfo: [NSLocalizedDescriptionKey: "AVAudioPlayer play() returned false"])
+                    }
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
     func stop() {
         task?.cancel()
         task = nil
         fallback.stop()
+        audioPlayer?.stop()
+        audioPlayer = nil
+        audioDelegate = nil
         if let player {
             Task { await player.stopAndCancel() }
         }
@@ -104,5 +154,19 @@ private actor PiperKareemModelManager {
         }
         try? FileManager.default.removeItem(at: local)
         try FileManager.default.moveItem(at: temporary, to: local)
+    }
+}
+
+
+private final class PiperAudioDelegate: NSObject, AVAudioPlayerDelegate {
+    private let completion: (Bool) -> Void
+    init(completion: @escaping (Bool) -> Void) {
+        self.completion = completion
+    }
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        completion(flag)
+    }
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        completion(false)
     }
 }
