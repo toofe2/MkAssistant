@@ -20,8 +20,11 @@ jobs:
           curl -L --fail --retry 3 -o /tmp/kareem.tar.bz2 \
             https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-ar_JO-kareem-medium-int8.tar.bz2
           tar -xjf /tmp/kareem.tar.bz2 -C /tmp
-          SRC=$(find /tmp -maxdepth 1 -type d -name 'vits-piper-ar_JO-kareem-medium-int8*' | head -1)
-          cp "$SRC"/*.onnx MkAssistant/Resources/TTS/kareem.onnx
+          MODEL=$(find /tmp -type f -name '*.onnx' | grep 'kareem' | head -1)
+          SRC=$(dirname "$MODEL")
+          echo "Model directory: $SRC"
+          find "$SRC" -maxdepth 2 -type f | head -30
+          cp "$MODEL" MkAssistant/Resources/TTS/kareem.onnx
           cp "$SRC"/tokens.txt MkAssistant/Resources/TTS/tokens.txt
           cp -R "$SRC"/espeak-ng-data MkAssistant/Resources/TTS/espeak-ng-data
           test -s MkAssistant/Resources/TTS/kareem.onnx
