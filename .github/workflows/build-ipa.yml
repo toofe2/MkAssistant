@@ -1,0 +1,54 @@
+name: Build MkAssistant IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned app
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project MkAssistant.xcodeproj \
+            -scheme MkAssistant \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/MkAssistant.app Payload/
+          zip -qry MkAssistant-unsigned.ipa Payload
+
+      - name: Install ldid
+        run: brew install ldid
+
+      - name: Sign for TrollStore
+        run: |
+          ldid -SMkAssistant/Config/MkAssistant.entitlements Payload/MkAssistant.app/MkAssistant
+          zip -qry MkAssistant-TrollStore.ipa Payload
+
+      - name: Upload IPA artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MkAssistant-IPA
+          path: |
+            MkAssistant-unsigned.ipa
+            MkAssistant-TrollStore.ipa
