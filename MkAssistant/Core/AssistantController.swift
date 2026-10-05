@@ -32,7 +32,7 @@ final class AssistantController: ObservableObject {
     init(
         wakeWord: WakeWordDetecting = PlaceholderWakeWordEngine(),
         speech: SpeechRecognizing = AppleSpeechRecognizer(),
-        speaker: SpeechSynthesizing = AppleSpeechSynthesizer(),
+        speaker: SpeechSynthesizing = PiperSpeechSynthesizer(),
         agent: AssistantAgent = LocalAssistantAgent()
     ) {
         self.wakeWord = wakeWord
