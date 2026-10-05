@@ -22,6 +22,7 @@ final class AssistantController: ObservableObject {
     @Published private(set) var state: State = .idle
     @Published private(set) var lastTranscript = ""
     @Published private(set) var lastResponse = ""
+    @Published private(set) var voiceDiagnostic = "Piper: not tested"
 
     private let wakeWord: WakeWordDetecting
     private let speech: SpeechRecognizing
@@ -39,6 +40,11 @@ final class AssistantController: ObservableObject {
         self.speech = speech
         self.speaker = speaker
         self.agent = agent
+        if let piper = speaker as? PiperSpeechSynthesizer {
+            piper.onDiagnostic = { [weak self] message in
+                Task { @MainActor in self?.voiceDiagnostic = message }
+            }
+        }
     }
 
     func start() {
