@@ -64,7 +64,7 @@ final class SherpaSpeechSynthesizer: SpeechSynthesizing {
             noiseScaleW: 0.8,
             lengthScale: 1.0
         )
-        let modelConfig = sherpaOnnxOfflineTtsModelConfig(numThreads: 2, vits: vits)
+        let modelConfig = sherpaOnnxOfflineTtsModelConfig(vits: vits, numThreads: 2)
         var config = sherpaOnnxOfflineTtsConfig(model: modelConfig)
         let created = SherpaOnnxOfflineTtsWrapper(config: &config)
         tts = created
