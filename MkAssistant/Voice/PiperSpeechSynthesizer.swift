@@ -5,6 +5,7 @@ import piper_player
 /// Free, local neural TTS. The Kareem model is downloaded once and cached
 /// in Application Support; subsequent speech synthesis is fully on-device.
 final class PiperSpeechSynthesizer: SpeechSynthesizing {
+    var onDiagnostic: ((String) -> Void)?
     private let fallback = AppleSpeechSynthesizer()
     private var player: PiperPlayer?
     private var task: Task<Void, Never>?
@@ -15,7 +16,9 @@ final class PiperSpeechSynthesizer: SpeechSynthesizing {
         task = Task { [weak self] in
             guard let self else { return }
             do {
+                await MainActor.run { self.onDiagnostic?("Piper: preparing Kareem model…") }
                 let files = try await modelManager.prepare()
+                await MainActor.run { self.onDiagnostic?("Piper: model ready") }
                 let p: PiperPlayer
                 if let player {
                     p = player
@@ -27,12 +30,14 @@ final class PiperSpeechSynthesizer: SpeechSynthesizing {
                     )
                     let created = try PiperPlayer(params: params)
                     player = created
+                    await MainActor.run { self.onDiagnostic?("Piper: engine ready") }
                     p = created
                 }
 
                 let session = AVAudioSession.sharedInstance()
                 try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
                 try? session.setActive(true)
+                await MainActor.run { self.onDiagnostic?("Piper: speaking…") }
                 try await p.play(text: text)
                 try? session.setActive(false, options: .notifyOthersOnDeactivation)
 
@@ -41,8 +46,9 @@ final class PiperSpeechSynthesizer: SpeechSynthesizing {
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                // First launch may have no network/model yet; never lose speech.
+                let detail = String(describing: error)
                 await MainActor.run {
+                    self.onDiagnostic?("Piper ERROR: \(detail)")
                     self.fallback.speak(text, language: language, completion: completion)
                 }
             }
