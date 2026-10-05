@@ -15,7 +15,14 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
                 .padding()
 
-            Button("Test Microphone") {
+            if !assistant.lastResponse.isEmpty {
+                Text("MK: \(assistant.lastResponse)")
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .padding()
+            }
+
+            Button("Start Voice Test") {
                 assistant.testListen()
             }
             .buttonStyle(.borderedProminent)
