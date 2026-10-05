@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 final class AssistantController: ObservableObject {
     enum State {
-        case idle, requestingPermission, listeningForWakeWord, listening, thinking, speaking, error(String)
+        case idle, requestingPermission, listeningForWakeWord, listening, thinking, speaking, followUp, error(String)
 
         var label: String {
             switch self {
@@ -13,6 +13,7 @@ final class AssistantController: ObservableObject {
             case .listening: return "Listening…"
             case .thinking: return "Thinking…"
             case .speaking: return "Speaking…"
+            case .followUp: return "Listening for follow-up…"
             case .error(let message): return "Error: \(message)"
             }
         }
@@ -20,19 +21,23 @@ final class AssistantController: ObservableObject {
 
     @Published private(set) var state: State = .idle
     @Published private(set) var lastTranscript = ""
+    @Published private(set) var lastResponse = ""
 
     private let wakeWord: WakeWordDetecting
     private let speech: SpeechRecognizing
     private let speaker: SpeechSynthesizing
+    private let agent: AssistantAgent
 
     init(
         wakeWord: WakeWordDetecting = PlaceholderWakeWordEngine(),
         speech: SpeechRecognizing = AppleSpeechRecognizer(),
-        speaker: SpeechSynthesizing = AppleSpeechSynthesizer()
+        speaker: SpeechSynthesizing = AppleSpeechSynthesizer(),
+        agent: AssistantAgent = LocalAssistantAgent()
     ) {
         self.wakeWord = wakeWord
         self.speech = speech
         self.speaker = speaker
+        self.agent = agent
     }
 
     func start() {
@@ -45,25 +50,25 @@ final class AssistantController: ObservableObject {
             state = .error("Speech recognition permission denied")
             return
         }
+        armWakeWord()
+    }
+
+    private func armWakeWord() {
         state = .listeningForWakeWord
         wakeWord.start { [weak self] in
-            Task { @MainActor in self?.wakeDetected() }
+            Task { @MainActor in self?.beginListening() }
         }
     }
 
-    /// Temporary test path for Phase 1. The UI can call this before the
-    /// production wake-word engine is installed.
     func testListen() {
-        beginListening()
-    }
-
-    private func wakeDetected() {
         beginListening()
     }
 
     private func beginListening() {
         speaker.stop()
+        speech.stop()
         state = .listening
+
         do {
             try speech.start(
                 locale: Locale(identifier: "ar-IQ"),
@@ -72,8 +77,10 @@ final class AssistantController: ObservableObject {
                 },
                 onFinal: { [weak self] text in
                     Task { @MainActor in
-                        self?.lastTranscript = text
-                        self?.state = .thinking
+                        guard let self else { return }
+                        self.lastTranscript = text
+                        self.speech.stop()
+                        await self.answer(text)
                     }
                 }
             )
@@ -82,8 +89,33 @@ final class AssistantController: ObservableObject {
         }
     }
 
+    private func answer(_ transcript: String) async {
+        let clean = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else {
+            armWakeWord()
+            return
+        }
+
+        state = .thinking
+        do {
+            let response = try await agent.respond(to: AssistantRequest(transcript: clean, locale: "ar-IQ"))
+            lastResponse = response.spokenText
+            state = .speaking
+            speaker.speak(response.spokenText, language: "ar-IQ")
+
+            // Phase-1 follow-up window. AVSpeechSynthesizer does not yet expose
+            // completion through our protocol, so wait briefly before re-listening.
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            state = .followUp
+            beginListening()
+        } catch {
+            state = .error(error.localizedDescription)
+        }
+    }
+
     func stopListening() {
         speech.stop()
-        state = .listeningForWakeWord
+        speaker.stop()
+        armWakeWord()
     }
 }
