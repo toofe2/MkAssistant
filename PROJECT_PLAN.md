@@ -21,3 +21,5 @@ Read-only OBD-II telemetry and DTC explanation.
 ## Safety
 Vehicle-control integrations remain read-only unless a separately reviewed safe capability is introduced.
 Secrets are never committed to Git.
+
+<!-- build trigger: phase-1 -->
