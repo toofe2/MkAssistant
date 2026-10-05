@@ -22,6 +22,11 @@ struct ContentView: View {
                     .padding()
             }
 
+            Text(assistant.voiceDiagnostic)
+                .font(.caption)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+
             Button("Start Voice Test") {
                 assistant.testListen()
             }
