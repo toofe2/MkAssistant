@@ -148,6 +148,15 @@ final class AssistantController: ObservableObject {
         }
     }
 
+    func testSpeaker() {
+        speech.stop()
+        lastResponse = "هلا مصطفى، آني حاضر. هذا اختبار الصوت."
+        state = .speaking
+        speaker.speak(lastResponse, language: "ar-IQ") { [weak self] in
+            Task { @MainActor in self?.armWakeWord() }
+        }
+    }
+
     func stopListening() {
         listeningTimeoutTask?.cancel()
         speech.stop()
