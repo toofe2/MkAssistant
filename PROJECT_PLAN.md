@@ -23,3 +23,5 @@ Vehicle-control integrations remain read-only unless a separately reviewed safe 
 Secrets are never committed to Git.
 
 <!-- build trigger: phase-1 -->
+
+<!-- rebuild: voice-loop-fix-2 -->
